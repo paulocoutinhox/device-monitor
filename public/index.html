@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, shrink-to-fit=no, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="">
+
+	<title>Minicap Proxy</title>
+
+	<!-- Bootstrap Core CSS -->
+	<link href="css/bootstrap.min.css" rel="stylesheet">
+
+	<!-- Custom CSS -->
+	<link href="css/simple-sidebar.css" rel="stylesheet">
+
+	<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+	<!--[if lt IE 9]>
+	<script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+	<script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+	<![endif]-->
+
+	<script src="js/jquery.min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="js/hammer.min.js"></script>
+
+</head>
+<body>
+
+<div id="wrapper">
+
+	<!-- Sidebar -->
+	<div id="sidebar-wrapper">
+		<ul class="sidebar-nav" id="device-list-menu">
+			<li class="sidebar-brand">
+				<a href="javascript:goToFullScreen(); void(0);">Device list </a>
+			</li>
+			<li>
+				<p>Loading...</p>
+			</li>
+		</ul>
+	</div>
+	<!-- /#sidebar-wrapper -->
+
+	<!-- Page Content -->
+	<div id="page-content-wrapper">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-lg-12">
+					<canvas id="canvas" style=""></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- /#page-content-wrapper -->
+
+</div>
+<!-- /#wrapper -->
+
+<!-- Menu Toggle Script -->
+<script>
+	$("#menu-toggle").click(function (e) {
+		e.preventDefault();
+		$("#wrapper").toggleClass("toggled");
+	});
+</script>
+
+<script>
+	/*jshint browser:true*/
+
+	function getParameterByName(name, url) {
+		if (!url) {
+			url = window.location.href;
+		}
+		name = name.replace(/[\[\]]/g, "\\$&");
+		var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+			results = regex.exec(url);
+		if (!results) return null;
+		if (!results[2]) return '';
+		return decodeURIComponent(results[2].replace(/\+/g, " "));
+	}
+
+	var deviceId = getParameterByName("device");
+	var fullscreen = getParameterByName("fullscreen");
+
+	var BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+	var canvas = document.getElementById('canvas');
+	var g = canvas.getContext('2d');
+
+	var ws;
+
+	var onFullscreen = false;
+
+	function connectOnServer() {
+		ws = new WebSocket('ws://' + location.host + '/ws');
+		//ws.binaryType = 'blob'
+
+		ws.onclose = function () {
+			console.log('onclose', arguments);
+
+			clearCanvas();
+
+			setTimeout(function () {
+				clearCanvas();
+				connectOnServer();
+			}, 2000);
+		};
+
+		ws.onerror = function () {
+			console.log('onerror', arguments);
+			clearCanvas();
+		};
+
+		ws.onmessage = function (message) {
+			//console.log("on message", message);
+
+			if (message.data instanceof Blob) {
+				var blob = new Blob([message.data], {type: 'image/jpeg'});
+				var URL = window.URL || window.webkitURL;
+				var img = new Image();
+
+				img.onload = function () {
+					canvas.width = img.width;
+					canvas.height = img.height;
+					canvas.style = "margin: 0 auto; border: 1px solid red; width: " + (img.width / 2) + "px; height: " + (img.height / 2) + "px;";
+					g.drawImage(img, 0, 0);
+					img.onload = null;
+					img.src = BLANK_IMG;
+					img = null;
+					u = null;
+					blob = null;
+				};
+
+				var u = URL.createObjectURL(blob);
+				img.src = u;
+			} else {
+				var messadeJSON = JSON.parse(message.data);
+				var messadeData = messadeJSON.data;
+				var messageType = messadeJSON.mt;
+
+				if (messageType == "device-list") {
+					var devices = messadeData.list;
+					var deviceListStr = '<li class="sidebar-brand"> <a href="#">Device list </a> </li>';
+
+					for (var x = 0; x < devices.length; x++) {
+						var device = devices[x];
+						deviceListStr += '<li> <a href="javascript:changeDevice(\'' + device.id + '\'); void(0);">Device ' + (x + 1) + '</a> </li>'
+					}
+
+					$("#device-list-menu").html(deviceListStr);
+				} else if (messageType == "screenshot") {
+					var imageEncodedFromDeviceId = messadeData.device;
+
+					if (imageEncodedFromDeviceId == deviceId) {
+						var imageEncoded = messadeData.image;
+						var img = new Image();
+
+						img.onload = function () {
+							canvas.width = img.width;
+							canvas.height = img.height;
+							canvas.style = "margin: 0 auto; border: 1px solid red; width: " + (img.width / 2) + "px; height: " + (img.height / 2) + "px;";
+							g.drawImage(img, 0, 0);
+							img.onload = null;
+							img.src = BLANK_IMG;
+							img = null;
+							u = null;
+							blob = null;
+						};
+
+						img.src = 'data:image/png;base64,' + imageEncoded;
+					} else {
+						clearCanvas();
+					}
+				}
+			}
+		};
+
+		ws.onopen = function () {
+			console.log('onopen', arguments);
+			//getDeviceList();
+		};
+	}
+
+	connectOnServer();
+
+	setInterval(function () {
+		if (deviceId != "") {
+			getScreenshot();
+		}
+	}, 500);
+
+	setInterval(function () {
+		getDeviceList();
+	}, 2000);
+
+
+	//canvas.addEventListener("click", getClickPosition, false);
+
+	var hammertime = new Hammer(canvas, {});
+	hammertime.get('swipe').set({ direction: Hammer.DIRECTION_ALL });
+
+	hammertime.on('tap', function (event) {
+		var rect = event.target.getBoundingClientRect();
+		var scaleX = canvas.width / rect.width;
+		var scaleY = canvas.height / rect.height;
+
+		var posX = (event.center.x - rect.left) * scaleX;
+		var posY = (event.center.y - rect.top) * scaleY;
+
+		var message = {
+			mt: "tap",
+			data: {
+				x: posX,
+				y: posY,
+				device: deviceId
+			}
+		};
+
+		ws.send(JSON.stringify(message));
+	});
+
+	hammertime.on('swipe', function (event) {
+		var rect = event.target.getBoundingClientRect();
+		var scaleX = canvas.width / rect.width;
+		var scaleY = canvas.height / rect.height;
+
+		var posX = (event.center.x - rect.left) * scaleX;
+		var posY = (event.center.y - rect.top) * scaleY;
+
+		var deltaX = event.deltaX;
+		var deltaY = event.deltaY;
+
+		var message = {
+			mt: "swipe",
+			data: {
+				x: posX,
+				y: posY,
+				dx: posX + deltaX,
+				dy: posY + deltaY,
+				duration: 1000,
+				device: deviceId
+			}
+		};
+
+		ws.send(JSON.stringify(message));
+	});
+
+	function isWebSocketConnected() {
+		if (ws.readyState === ws.OPEN) {
+			return true;
+		}
+
+		return false;
+	}
+
+	function getMousePos(canvas, evt) {
+		var rect = canvas.getBoundingClientRect(), // abs. size of element
+			scaleX = canvas.width / rect.width,    // relationship bitmap vs. element for X
+			scaleY = canvas.height / rect.height;  // relationship bitmap vs. element for Y
+
+		return {
+			x: (evt.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+			y: (evt.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+		}
+	}
+
+	function getClickPosition(e) {
+		if (!isWebSocketConnected()) {
+			return;
+		}
+
+		var pos = getMousePos(canvas, e);
+		var posX = pos.x;
+		var posY = pos.y;
+
+		var message = {
+			mt: "tap",
+			data: {
+				x: posX,
+				y: posY,
+				device: deviceId
+			}
+		};
+
+		ws.send(JSON.stringify(message));
+	}
+
+	function getDeviceList() {
+		if (!isWebSocketConnected()) {
+			return;
+		}
+
+		var message = {
+			mt: "device-list"
+		};
+
+		ws.send(JSON.stringify(message));
+	}
+
+	function getScreenshot() {
+		if (!isWebSocketConnected()) {
+			return;
+		}
+
+		var message = {
+			mt: "screenshot",
+			data: {
+				device: deviceId
+			}
+		};
+
+		ws.send(JSON.stringify(message));
+	}
+
+	function changeDevice(newDeviceId) {
+		deviceId = newDeviceId;
+		clearCanvas();
+		console.log("Devide changed to: " + newDeviceId);
+	}
+
+	function clearCanvas() {
+		g.save();
+
+		// Use the identity matrix while clearing the canvas
+		g.setTransform(1, 0, 0, 1, 0, 0);
+		g.clearRect(0, 0, canvas.width, canvas.height);
+
+		// Restore the transform
+		g.restore();
+	}
+
+	function goToFullScreen() {
+		onFullscreen = true;
+
+		var i = canvas;
+
+		if (i.requestFullscreen) {
+			i.requestFullscreen();
+		} else if (i.webkitRequestFullscreen) {
+			i.webkitRequestFullscreen();
+		} else if (i.mozRequestFullScreen) {
+			i.mozRequestFullScreen();
+		} else if (i.msRequestFullscreen) {
+			i.msRequestFullscreen();
+		}
+	}
+
+</script>
+
+</body>
+
+</html>
