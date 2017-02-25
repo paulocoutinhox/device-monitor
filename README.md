@@ -6,12 +6,13 @@ Start this service on your machine, plug your mobile devices and see on web clie
   
 # Get started
 
-1. go get -u github.com/prsolucoes/device-monitor
-2. cd $GOPATH/src/github.com/prsolucoes/device-monitor
-3. make deps
-4. make install
-5. device-monitor
-6. Open URL: http://localhost:3030
+1. You need install Android ADB (https://developer.android.com/studio/command-line/adb.html)
+2. go get -u github.com/prsolucoes/device-monitor
+3. cd $GOPATH/src/github.com/prsolucoes/device-monitor
+4. make deps
+5. make install
+6. device-monitor
+7. Open URL: http://localhost:3030
 
 # Sugestions
 
