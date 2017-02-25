@@ -13,7 +13,7 @@ import (
 	"github.com/yosemite-open/go-adb"
 	"time"
 	"encoding/base64"
-	"github.com/prsolucoes/go-minicap-proxy/utils"
+	"github.com/prsolucoes/device-monitor/utils"
 	"strconv"
 )
 

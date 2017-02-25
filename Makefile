@@ -11,13 +11,13 @@ install:
 
 format:
 	${GOFMT} main.go
-	${GOFMT} domain/models.go
+	${GOFMT} utils/adb_utils.go
 
 test:
 
 deps:
 	${GODEPS} github.com/pborman/uuid
-	${GODEPS} github.com/disintegration/imaging
+	${GODEPS} github.com/yosemite-open/go-adb
 	${GODEPS} golang.org/x/net/websocket
 
 stop:
@@ -49,6 +49,3 @@ build-all:
 
 	mkdir -p build/windows64
 	env GOOS=windows GOARCH=amd64 go build -o build/windows64/${EXECUTABLE} -v github.com/prsolucoes/${EXECUTABLE}
-
-minicap-remove:
-	adb shell rm -rf /data/local/tmp/minicap*
