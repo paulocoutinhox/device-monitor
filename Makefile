@@ -1,4 +1,4 @@
-EXECUTABLE=go-minicap-client
+EXECUTABLE=device-monitor
 LOG_FILE=/var/log/${EXECUTABLE}.log
 GOFMT=gofmt -w
 GODEPS=go get -u
