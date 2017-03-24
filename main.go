@@ -206,6 +206,7 @@ func wsHandler(ws *websocket.Conn) {
 	}
 
 	debugf("Connection closed: %v", clientId)
+	removeClient(&client)
 }
 
 func main() {
@@ -244,6 +245,13 @@ func removeClient(client *Client) {
 			Clients = append(Clients[:i], Clients[i+1:]...)
 		}
 	}
+}
+
+func getClientCount() int {
+	ClientsMutex.Lock()
+	defer ClientsMutex.Unlock()
+
+	return len(Clients)
 }
 
 func addDevice(device *Device) {
@@ -439,11 +447,13 @@ func startScreenshotWatcher() {
 		for _, device := range Devices {
 			deviceSerial := device.Serial
 
-			deviceIsOn, err := utils.AdbIsDevicePowerOn(deviceSerial)
+			if getClientCount() > 0 {
+				deviceIsOn, err := utils.AdbIsDevicePowerOn(deviceSerial)
 
-			if err == nil {
-				if !deviceIsOn {
-					utils.AdbTurnOnScreen(deviceSerial)
+				if err == nil {
+					if !deviceIsOn {
+						utils.AdbTurnOnScreen(deviceSerial)
+					}
 				}
 			}
 
