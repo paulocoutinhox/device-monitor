@@ -2,19 +2,19 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/pborman/uuid"
+	"github.com/prsolucoes/device-monitor/utils"
+	"github.com/yosemite-open/go-adb"
 	"golang.org/x/net/websocket"
 	"log"
 	"net/http"
-	"sync"
-	"errors"
-	"encoding/json"
-	"github.com/yosemite-open/go-adb"
-	"time"
-	"encoding/base64"
-	"github.com/prsolucoes/device-monitor/utils"
 	"strconv"
+	"sync"
+	"time"
 )
 
 type Client struct {
@@ -24,15 +24,15 @@ type Client struct {
 }
 
 type Message struct {
-	MT   string `json:"mt"`
+	MT   string                 `json:"mt"`
 	Data map[string]interface{} `json:"data"`
 }
 
 type Device struct {
-	Id             string `json:"id"`
-	Serial         string `json:"-"`
-	Name           string `json:"name"`
-	Screenshot     []byte `json:"-"`
+	Id             string        `json:"id"`
+	Serial         string        `json:"-"`
+	Name           string        `json:"name"`
+	Screenshot     []byte        `json:"-"`
 	ScreenshotChan <-chan []byte `json:"-"`
 }
 
@@ -154,7 +154,7 @@ func wsHandler(ws *websocket.Conn) {
 
 				posX := message.GetDataValueAsString("x")
 				posY := message.GetDataValueAsString("y")
-				
+
 				utils.AdbInputTap(device.Serial, posX, posY)
 			} else if message.MT == "device-list" {
 				response := &Message{
@@ -394,14 +394,14 @@ func startAdbDeviceWatcher() {
 
 		if event.NewState == adb.StateOnline {
 			/*
-			descriptor := adb.DeviceWithSerial(deviceSerial)
-			device := AdbClient.Device(descriptor)
-			deviceInfo, err := device.DeviceInfo()
+				descriptor := adb.DeviceWithSerial(deviceSerial)
+				device := AdbClient.Device(descriptor)
+				deviceInfo, err := device.DeviceInfo()
 
-			if err != nil {
-				debugf("Error on get device information: %v", err)
-				continue
-			}
+				if err != nil {
+					debugf("Error on get device information: %v", err)
+					continue
+				}
 			*/
 
 			newDevice := &Device{
@@ -438,6 +438,15 @@ func startScreenshotWatcher() {
 	for {
 		for _, device := range Devices {
 			deviceSerial := device.Serial
+
+			deviceIsOn, err := utils.AdbIsDevicePowerOn(deviceSerial)
+
+			if err == nil {
+				if !deviceIsOn {
+					utils.AdbTurnOnScreen(deviceSerial)
+				}
+			}
+
 			screenshot, err := utils.AdbGetScreenshot(deviceSerial)
 
 			if err == nil {
